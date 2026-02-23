@@ -291,38 +291,52 @@ class SurfaceIdentifier:
         cone.SemiAngle = semiangle
         return cone
 
+    # def fix_rotation(self, surf):
+    #     "Rotate surface so that the seam is outside of the bounds"
+    #     vec2 = FreeCAD.Base.Vector2d
+    #     u0, u1, v0, v1 = self.bounds
+    #     print(f"Face U range : {u0}, {u1}")
+    #     l2do = Part.Geom2d.Line2dSegment(vec2(u0, v0), vec2(u1, v1))
+    #     diago = l2do.toShape(self.face.Surface)
+    #     u_width = u1 - u0
+    # 
+    #     pt1 = self.face.valueAt(u0, v0)
+    #     pt2 = self.face.valueAt(u1, v1)
+    #     s0, t0 = surf.parameter(pt1)
+    #     s1, t1 = surf.parameter(pt2)
+    #     l2dn = Part.Geom2d.Line2dSegment(vec2(s0, t0), vec2(s1, t1))
+    #     diagn = l2dn.toShape(surf)
+    # 
+    #     if abs(diagn.Length - diago.Length) > self.tol:
+    #         print(f"Diagonal error : {diagn.Length} != {diago.Length}")
+    # 
+    #     print(f"Surface S range : {s0}, {s1}")
+    #     s_width = abs(s1 - s0)
+    #     # print(s0, s1)
+    #     if abs(u_width - s_width) > self.tol:
+    #         print("Rotating")
+    #         plm = FreeCAD.Placement()
+    #         plm.rotate(surf.Center, surf.Axis, u1 - s0)
+    #         surf.transform(plm.Matrix)
+    #         # pt1 = self.face.valueAt(u0, v0)
+    #         # pt2 = self.face.valueAt(u1, v1)
+    #         s0, t0 = surf.parameter(pt1)
+    #         s1, t1 = surf.parameter(pt2)
+    #         print(f"Surface S range : {s0}, {s1}")
+    #     return surf
+
     def fix_rotation(self, surf):
-        "Rotate surface so that the seam is outside of the bounds"
-        vec2 = FreeCAD.Base.Vector2d
         u0, u1, v0, v1 = self.bounds
-        print(f"Face U range : {u0}, {u1}")
-        l2do = Part.Geom2d.Line2dSegment(vec2(u0, v0), vec2(u1, v1))
-        diago = l2do.toShape(self.face.Surface)
-        u_width = u1 - u0
-
         pt1 = self.face.valueAt(u0, v0)
-        pt2 = self.face.valueAt(u1, v1)
         s0, t0 = surf.parameter(pt1)
+        pt2 = self.face.valueAt(u1, v1)
         s1, t1 = surf.parameter(pt2)
-        l2dn = Part.Geom2d.Line2dSegment(vec2(s0, t0), vec2(s1, t1))
-        diagn = l2dn.toShape(surf)
-
-        if abs(diagn.Length - diago.Length) > self.tol:
-            print(f"Diagonal error : {diagn.Length} != {diago.Length}")
-
-        print(f"Surface S range : {s0}, {s1}")
-        s_width = abs(s1 - s0)
-        # print(s0, s1)
-        if abs(u_width - s_width) > self.tol:
-            print("Rotating")
-            plm = FreeCAD.Placement()
-            plm.rotate(surf.Center, surf.Axis, u1 - s0)
-            surf.transform(plm.Matrix)
-            # pt1 = self.face.valueAt(u0, v0)
-            # pt2 = self.face.valueAt(u1, v1)
-            s0, t0 = surf.parameter(pt1)
-            s1, t1 = surf.parameter(pt2)
-            print(f"Surface S range : {s0}, {s1}")
+        if t1 < t0:
+            surf.Axis = -surf.Axis
+        print("Rotating")
+        plm = FreeCAD.Placement()
+        plm.rotate(surf.Center, surf.Axis, s1 * 180 / pi)
+        surf.transform(plm.Matrix)
         return surf
 
     def get_surface(self):
@@ -357,7 +371,8 @@ class SurfaceIdentifier:
 # *** Test Script ***
 
 import FreeCADGui
-m = 0.0
+from freecad.Curves.lib.trimmed_surface import TrimmedSurface
+
 sel = FreeCADGui.Selection.getSelection()
 for o in sel:
     FreeCAD.Console.PrintMessage(f"--- {o.Label} analysis\n")
@@ -377,8 +392,10 @@ for o in sel:
                 u0, u1 = u1, u0
             if v1 < v0:
                 v0, v1 = v1, v0
-            rts = Part.RectangularTrimmedSurface(surf, u0 - m, u1 + m, v0 - m, v1 + m)
-            Part.show(rts.toShape(), f"Face{i + 1}")
+            rts = TrimmedSurface(surf)
+            rts.Bounds = (u0, u1, v0, v1)
+            # rts.extend(0.1, Relative=True)
+            Part.show(rts.Face, f"Face{i + 1}")
 
         # for pl in sr.sample_planes():
         #     rts = Part.RectangularTrimmedSurface(pl, -100, 100, -100, 100)
