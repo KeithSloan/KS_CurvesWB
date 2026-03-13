@@ -3,50 +3,39 @@ import Part
 from random import random
 from math import pi
 from freecad.Curves.lib.trimmed_surface import TrimmedSurface
+from freecad.Curves.lib import face_builder
 
 
-def replace_surface_fix(face, surface, tol=1e-7):
-    "Returns a new face, with surface support"
-    ffix = Part.ShapeFix.Face(surface, tol)
-    for w in face.Wires:
-        ffix.add(w)
-    ffix.perform()
-    if ffix.fixOrientation():
-        print("fixOrientation")
-    if ffix.fixMissingSeam():
-        print("fixMissingSeam")
-    return ffix.face()
-
-def replace_surface(face, surface):
-    "Returns a new face, with surface support"
-    ow = face.OuterWire
-    iwl = [w for w in face.Wires if not w.isSame(ow)]
-    wl = [ow] + iwl
-    nf = Part.Face(surface, wl)
-    # nf.validate()
-    if nf.isValid():
-        return nf
-    nwl = []
-    for w in wl:
-        ts = TrimmedSurface(surface)
-        ts.encompass(face.OuterWire)
-        ts.extend(1, Relative=True)
-        tsf = ts.Face
-        pw = tsf.project([w])
-        se = Part.sortEdges(pw.Edges, 1e-7)
-        if not len(se) == 1:
-            Part.show(Part.Compound([tsf] + [w]), "SortEdges failed")
-            return Part.Shape()
-        nw = Part.Wire(se[0])
-        nw.Orientation = "Reversed"
-        nwl.append(nw)
-    nwl[0].Orientation = "Forward"
-    nf = Part.Face(surface, nwl[0])
-    try:
-        nf.validate()
-    except Part.OCCError:
-        pass
-    return nf
+# def replace_surface(face, surface):
+#     "Returns a new face, with surface support"
+#     ow = face.OuterWire
+#     iwl = [w for w in face.Wires if not w.isSame(ow)]
+#     wl = [ow] + iwl
+#     nf = Part.Face(surface, wl)
+#     # nf.validate()
+#     if nf.isValid():
+#         return nf
+#     nwl = []
+#     for w in wl:
+#         ts = TrimmedSurface(surface)
+#         ts.encompass(face.OuterWire)
+#         ts.extend(1, Relative=True)
+#         tsf = ts.Face
+#         pw = tsf.project([w])
+#         se = Part.sortEdges(pw.Edges, 1e-7)
+#         if not len(se) == 1:
+#             Part.show(Part.Compound([tsf] + [w]), "SortEdges failed")
+#             return Part.Shape()
+#         nw = Part.Wire(se[0])
+#         nw.Orientation = "Reversed"
+#         nwl.append(nw)
+#     nwl[0].Orientation = "Forward"
+#     nf = Part.Face(surface, nwl[0])
+#     try:
+#         nf.validate()
+#     except Part.OCCError:
+#         pass
+#     return nf
 
 
 def mean_vector(vectors):
@@ -386,9 +375,13 @@ class SurfaceIdentifier:
         pl = Part.Plane(pt2, surf.Axis)
         pt = pl.intersect(iso)[0][0]
         pt3 = pt.toShape().Point
-        v1 = pt1 - pt2
+        v1 = pt2 - pt1
         v2 = pt3 - pt2
-        angle = v2.getAngle(-v1)
+        angle = v2.getAngle(v1)
+        cross = v2.cross(v1)
+        dot = cross.dot(surf.Axis)
+        if dot < 0:
+            angle = -angle
         # s0, t0 = surf.parameter(pt1)
         # pt2 = self.face.valueAt(u1, v1)
         # s1, t1 = surf.parameter(pt2)
@@ -396,7 +389,7 @@ class SurfaceIdentifier:
         #     surf.Axis = -surf.Axis
         print("Rotating")
         plm = FreeCAD.Placement()
-        plm.rotate(surf.Center, surf.Axis, -angle * 180 / pi)
+        plm.rotate(surf.Center, surf.Axis, angle * 180 / pi)
         surf.transform(plm.Matrix)
         return surf
 
@@ -451,7 +444,7 @@ for o in sel:
         surf = sr.get_surface()
         if surf:
             sr.report()
-            nf = replace_surface_fix(face, surf)
+            nf = face_builder.change_surface(face, surf)
             # Part.show(nf, f"Face{i + 1}")
             if isinstance(nf, Part.Face):
                 faces.append(nf)

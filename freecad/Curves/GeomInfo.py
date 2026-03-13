@@ -376,7 +376,8 @@ class surfNode(GeomNode):
         tsurf = ts.Surface
         upars = paramList(self.num_iso, *ts.Bounds[:2])
         vpars = paramList(self.num_iso, *ts.Bounds[2:])
-        color = (1.0, 0.5, 0.3)
+        color = [0.5 * v for v in self.Xcolor]
+        FreeCAD.Console.PrintMessage(str(color))
         width = 3
         for u in upars:
             uiso = tsurf.uIso(u)
@@ -384,7 +385,7 @@ class surfNode(GeomNode):
             self.node.addChild(edge_node(uiso.toShape(), color, width, self.linePattern))
             color = self.Xcolor
             width = self.lineWidth
-        color = (0.3, 0.5, 1.0)
+        color = [0.5 * v for v in self.Ycolor]
         width = 3
         for v in vpars:
             viso = tsurf.vIso(v)
