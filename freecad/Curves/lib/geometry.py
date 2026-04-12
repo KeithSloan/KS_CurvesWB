@@ -1,6 +1,30 @@
 import FreeCAD
 import Part
 
+from freecad.Curves.lib.precision import tol3d
+
+
+def round_vector(vector, tol=tol3d):
+    "Round vector to one of the main XYZ axis, if possible"
+    length = vector.Length
+    if abs(1 - length) < tol:
+        length = 1.0
+    vec = FreeCAD.Vector(vector)
+    vec.normalize()
+    x0 = abs(vec.x) < tol
+    y0 = abs(vec.y) < tol
+    z0 = abs(vec.z) < tol
+    x1 = abs(1 - vec.x) < tol
+    y1 = abs(1 - vec.y) < tol
+    z1 = abs(1 - vec.z) < tol
+    if x0 and y0 and z1:
+        return FreeCAD.Vector(0, 0, 1) * length
+    if x0 and y1 and z0:
+        return FreeCAD.Vector(0, 1, 0) * length
+    if x1 and y0 and z0:
+        return FreeCAD.Vector(1, 0, 0) * length
+    return vector
+
 
 def mean_vector(vectors):
     "Return the mean vector of a list of vectors"
@@ -18,7 +42,7 @@ def mean_line(lines):
     return Part.Line(location, location + direction)
 
 
-def lines_intersection(lines, tol=1e-7, size=1e6):
+def lines_intersection(lines, tol=tol3d, size=1e6):
     """
     If lines all intersect into one point.
     Returns this point, or None otherwise.
@@ -48,7 +72,7 @@ def lines_intersection(lines, tol=1e-7, size=1e6):
     return mean_vector(interlist)
 
 
-def planes_intersection(planes, tol=1e-7):
+def planes_intersection(planes, tol=tol3d):
     """
     If planes all intersect into one line, return this line.
     If planes intersect into parallel lines, return the direction.

@@ -1,17 +1,21 @@
+from math import degrees
+# from random import random
+
 import FreeCAD
 import Part
-# from random import random
-from math import pi
+
+from freecad.Curves.lib.precision import tol3d
 from freecad.Curves.lib.trimmed_surface import TrimmedSurface
 from freecad.Curves.lib import face_builder
 from freecad.Curves.lib.logger import FCLogger
 from freecad.Curves.lib.geometry import lines_intersection, planes_intersection
+from freecad.Curves.lib.surface_builder import build_cone
 
 
 class SurfaceIdentifier:
     "Tries to identify canonical surface of a face"
 
-    def __init__(self, face, num_samples=10, tol=1e-7):
+    def __init__(self, face, num_samples=10, tol=tol3d):
         self.face = face
         self.num_samples = num_samples
         self.bounds = self.face.ParameterRange
@@ -119,24 +123,27 @@ class SurfaceIdentifier:
             return Part.Line(proj2, proj2 - axis.Direction)
         return Part.Line(proj1, proj1 + axis.Direction)
 
-    def cone_data(self, apex, axis):
-        "Compute semi-angle, center and radius of a cone"
-        axis_line = Part.Line(apex, apex + axis.Direction)
-        pt1 = self.face.valueAt(self.bounds[0], self.bounds[2])
-        pt2 = self.face.valueAt(self.bounds[1], self.bounds[3])
-        proj1 = axis_line.projectPoint(pt1)
-        proj2 = axis_line.projectPoint(pt2)
-        par1 = axis_line.parameter(proj1)
-        par2 = axis_line.parameter(proj2)
-        # print(par1, par2)
-        radius1 = pt1.distanceToPoint(proj1)
-        radius2 = pt2.distanceToPoint(proj2)
-        line1 = FreeCAD.Vector(0, par2 - par1, 0)
-        line2 = FreeCAD.Vector(radius2, par2, 0) - FreeCAD.Vector(radius1, par1, 0)
-        angle = line1.getAngle(line2)
-        # if par2 < par1:
-        #     angle = -angle
-        return angle, proj1, radius1
+    # def cone_data(self, apex, axis):
+    #     "Return main circle of a cone"
+    #     axis_line = Part.Line(apex, apex + axis.Direction)
+    #     pt1 = self.face.valueAt(self.bounds[0], self.bounds[2])
+    #     pt2 = self.face.valueAt(self.bounds[1], self.bounds[3])
+    #     proj1 = axis_line.projectPoint(pt1)
+    #     proj2 = axis_line.projectPoint(pt2)
+    #     par1 = axis_line.parameter(proj1)
+    #     par2 = axis_line.parameter(proj2)
+    #     # print(par1, par2)
+    #     radius1 = pt1.distanceToPoint(proj1)
+    #     radius2 = pt2.distanceToPoint(proj2)
+    #     if radius1 > radius2:
+    #         return Part.Circle(proj1, axis.Direction, radius1)
+    #     return Part.Circle(proj2, axis.Direction, radius2)
+    #     line1 = FreeCAD.Vector(0, par2 - par1, 0)
+    #     line2 = FreeCAD.Vector(radius2, par2, 0) - FreeCAD.Vector(radius1, par1, 0)
+    #     angle = line1.getAngle(line2)
+    #     # if par2 < par1:
+    #     #     angle = -angle
+    #     return angle, proj1, radius1
 
     def basis_curve(self):
         "Returns the basis curve of a surface of extrusion"
@@ -165,13 +172,21 @@ class SurfaceIdentifier:
         sph.Radius = radius
         return sph
 
-    def get_plane(self):
-        if self.face.findPlane(self.tol):
-            u0, u1, v0, v1 = self.bounds
-            p1 = self.face.valueAt(u0, v0)
+    def get_plane(self, oriented=True):
+        if not self.face.findPlane(self.tol):
+            return
+        u0, u1, v0, v1 = self.bounds
+        p1 = self.face.valueAt(u0, v0)
+        if not oriented:
             p2 = self.face.valueAt(u1, v0)
             p3 = self.face.valueAt(u0, v1)
             return Part.Plane(p1, p2, p3)
+        # v1 = self.face.PrincipalProperties['FirstAxisOfInertia']
+        v2 = self.face.PrincipalProperties['SecondAxisOfInertia']
+        v3 = self.face.PrincipalProperties['ThirdAxisOfInertia']
+        p2 = p1 + v3
+        p3 = p1 + v2
+        return Part.Plane(p1, p2, p3)
 
     def get_cylinder(self, axis):
         cyl = Part.Cylinder()
@@ -182,13 +197,18 @@ class SurfaceIdentifier:
         return cyl
 
     def get_cone(self, apex, axis):
-        cone = Part.Cone()
-        cone.Axis = axis.Direction
-        semiangle, center, radius = self.cone_data(apex, axis)
-        cone.Center = center
-        cone.Radius = radius
-        cone.SemiAngle = semiangle
-        return cone
+        axis_line = Part.Line(apex, apex + axis.Direction)
+        pt1 = self.face.valueAt(self.bounds[0], self.bounds[2])
+        pt2 = self.face.valueAt(self.bounds[1], self.bounds[3])
+        proj1 = axis_line.projectPoint(pt1)
+        proj2 = axis_line.projectPoint(pt2)
+        radius1 = pt1.distanceToPoint(proj1)
+        radius2 = pt2.distanceToPoint(proj2)
+        if radius1 > radius2:
+            circle = Part.Circle(proj1, axis.Direction, radius1)
+        else:
+            circle = Part.Circle(proj2, axis.Direction, radius2)
+        return build_cone(apex, circle)
 
     def get_extrusion_surf(self, axis):
         cog = self.face.CenterOfGravity
@@ -212,7 +232,7 @@ class SurfaceIdentifier:
         pt3 = pt.toShape().Point
         v1 = pt2 - pt1
         v2 = pt3 - pt2
-        angle = v2.getAngle(v1) * 180 / pi
+        angle = degrees(v2.getAngle(v1))  # * 180 / pi
         cross = v2.cross(v1)
         dot = cross.dot(surf.Axis)
         if dot < 0:
@@ -256,6 +276,18 @@ class SurfaceIdentifier:
         return None
 
 
+def canonical_face(face, num_samples=10, tol=tol3d):
+    sr = SurfaceIdentifier(face, num_samples, tol)
+    if sr.is_canonical():
+        return face
+    surf = sr.get_surface()
+    if surf:
+        nf = face_builder.change_surface(surf, face)
+        if isinstance(nf, Part.Face):
+            return nf
+    return face
+
+
 # *** Test Script ***
 
 import FreeCADGui
@@ -270,19 +302,8 @@ for o in sel:
     faces = []
     for i, face in enumerate(o.Shape.Faces):
         log.debug(f"--- Face{i + 1} ({face.Surface.TypeId})")
-        sr = SurfaceIdentifier(face, 10, 1e-7)
-        # if sr.is_canonical():
-        #     faces.append(face)
-        #     continue
-        # sr.bounds = face.ParameterRange
-        surf = sr.get_surface()
-        if surf:
-            nf = face_builder.change_surface(surf, face)
-            # Part.show(nf, f"Face{i + 1}")
-            if isinstance(nf, Part.Face):
-                faces.append(nf)
-        else:
-            faces.append(face)
+        nf = canonical_face(face, 10, tol3d)
+        faces.append(nf)
     shell = Part.Shell(faces)
     shell.sewShape()
     solid = Part.Solid(shell)

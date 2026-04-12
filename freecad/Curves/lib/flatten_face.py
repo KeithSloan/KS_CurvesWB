@@ -3,7 +3,7 @@ import FreeCAD
 import Part
 from math import pi
 from freecad.Curves.lib.precision import tol3d
-from freecad.Curves.lib.surface_identifier import SurfaceIdentifier
+from freecad.Curves.lib.surface_identifier import SurfaceIdentifier, canonical_face
 from freecad.Curves.lib.logger import FCLogger
 from freecad.Curves.nurbs_tools import KnotVector
 
@@ -11,6 +11,28 @@ from freecad.Curves.nurbs_tools import KnotVector
 vec3 = FreeCAD.Vector
 vec2 = FreeCAD.Base.Vector2d
 err = FreeCAD.Console.PrintError
+
+
+class FlattenCylinder:
+    def __init__(self, face):
+        self.cylindricalFace = canonical_face(face)
+        if not self.cylindricalFace.TypeId == 'Part.Cylinder':
+            raise (ValueError, 'Face is not cylindrical')
+        self.build_face()
+
+    def __getattr__(self, name):
+        return self.Face.__getattribute__(name)
+
+    def build_face(self):
+        u0, u1, v0, v1 = self.cylindricalFace.ParameterRange
+        bs = Part.BSplineSurface()
+        bs.setPole(1, 1, vec3(0, 0))
+        bs.setPole(1, 2, vec3(0, v1 - v0))
+        bs.setPole(2, 1, vec3(2 * pi, 0))
+        bs.setPole(2, 2, vec3(2 * pi, v1 - v0))
+        bs.setUKnots([0, 2 * pi])
+        bs.setVKnots([v0, v1])
+        return bs
 
 
 class FlattenFace:
