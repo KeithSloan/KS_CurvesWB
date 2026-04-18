@@ -47,5 +47,100 @@ Code contribution is NOT encouraged and should first be discussed in [FreeCAD fo
 The workbench documention is not extensive.  
 Contributing documentation on [FreeCAD wiki](https://wiki.freecad.org/Curves_Workbench) is welcome.
 
+## Importing NURBS Geometry from Rhino (.3dm) Files
+
+The workbench includes two commands for converting NURBS geometry imported via the
+[ImportExport\_3DM](https://github.com/KeithSloan/ImportExport_3DM) workbench into
+fully editable Curves workbench objects.
+
+The ImportExport\_3DM workbench uses the **rhino3dm** Python library to read Rhino
+`.3dm` files.  The imported objects can be viewed in FreeCAD but are static — their
+NURBS data cannot be edited directly.  The commands below wrap the imported geometry
+in a parametric `Part::FeaturePython` object whose control-point poles, weights, knots
+and multiplicities are stored as editable properties, making them available to all
+other Curves workbench tools.
+
+Both commands are found in the **Misc.** toolbar and menu.
+
+---
+
+### Import NURBS Curve
+
+**Command:** `Curves_ImportNurbsCurve`
+
+Converts an imported NURBS curve into an editable Curves workbench BSpline curve object.
+
+**Usage:**
+1. Import a `.3dm` file containing NURBS curves using the ImportExport\_3DM workbench.
+2. Select one or more of the imported curve objects in the 3D view or model tree.
+3. Activate *Import NURBS Curve* from the **Misc.** menu or toolbar.
+
+**What it does:**
+- Finds the first Edge in the selected object that contains a `BSplineCurve`.
+- Extracts the full NURBS description: poles (control points), weights, knot vector,
+  knot multiplicities, degree, and periodic flag.
+- Creates a new `Part::FeaturePython` object whose `execute()` method reconstructs the
+  `BSplineCurve` from the stored properties.
+- Hides the original imported object.
+
+**Stored properties (all editable):**
+
+| Property | Type | Description |
+|---|---|---|
+| `Source` | Link | Reference to the original imported object |
+| `Poles` | VectorList | Control point positions |
+| `Weights` | FloatList | Weight for each pole |
+| `Knots` | FloatList | Knot parameter values |
+| `Multiplicities` | IntegerList | Multiplicity of each knot |
+| `Degree` | Integer | Polynomial degree of the curve |
+| `Periodic` | Bool | Whether the curve is closed/periodic |
+
+The resulting object shape is an `Edge`, so it can be used directly with any Curves
+workbench tool that accepts an edge (join, extend, split, discretize, blend, etc.).
+
+---
+
+### Import NURBS Surface
+
+**Command:** `Curves_ImportNurbsSurface`
+
+Converts an imported NURBS surface into an editable Curves workbench BSpline surface object.
+
+**Usage:**
+1. Import a `.3dm` file containing NURBS surfaces using the ImportExport\_3DM workbench.
+2. Select one or more of the imported surface objects in the 3D view or model tree.
+3. Activate *Import NURBS Surface* from the **Misc.** menu or toolbar.
+
+**What it does:**
+- Finds the first Face in the selected object that contains a `BSplineSurface`.
+- Extracts the full NURBS description: the U×V pole grid, weights, knot vectors and
+  multiplicities for both parametric directions, degrees, and periodicity flags.
+- Creates a new `Part::FeaturePython` object whose `execute()` method reconstructs the
+  `BSplineSurface` from the stored properties.
+- Hides the original imported object.
+
+**Stored properties (all editable):**
+
+| Property | Type | Description |
+|---|---|---|
+| `Source` | Link | Reference to the original imported object |
+| `Poles` | VectorList | Control point positions, stored row-major (U × V) |
+| `Weights` | FloatList | Weight for each pole, stored row-major |
+| `NbPolesU` | Integer | Number of poles in the U direction |
+| `NbPolesV` | Integer | Number of poles in the V direction |
+| `KnotsU` | FloatList | Knot parameter values in U |
+| `KnotsV` | FloatList | Knot parameter values in V |
+| `MultsU` | IntegerList | Knot multiplicities in U |
+| `MultsV` | IntegerList | Knot multiplicities in V |
+| `DegreeU` | Integer | Polynomial degree in U |
+| `DegreeV` | Integer | Polynomial degree in V |
+| `PeriodicU` | Bool | Whether the surface is periodic in U |
+| `PeriodicV` | Bool | Whether the surface is periodic in V |
+
+The resulting object shape is a `Face`, so it can be used directly with any Curves
+workbench tool that accepts a face (trim, iso-curve, zebra analysis, etc.).
+
+---
+
 ## License  
 CurvesWB is released under the LGPL2.1+ license. See [LICENSE](https://github.com/tomate44/CurvesWB/blob/main/LICENSES/LGPL-2.1.txt).
