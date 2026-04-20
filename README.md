@@ -142,5 +142,60 @@ workbench tool that accepts a face (trim, iso-curve, zebra analysis, etc.).
 
 ---
 
+### Import Sverchok NURBS JSON
+
+**Command:** `Curves_ImportSverchokJSON`
+
+Imports NURBS Curves and/or Surfaces from a JSON file exported by Blender's
+[Sverchok](https://github.com/nortikin/sverchok) addon ("NURBS to JSON" node)
+or any tool that writes the [geomdl/rw3dm](https://github.com/orbingol/rw3dm)
+exchange format.
+
+**Usage:**
+1. In Blender with Sverchok, connect a NURBS Curve or Surface node to a
+   "NURBS to JSON" node and export the `.json` file.
+2. In FreeCAD, activate *Import Sverchok NURBS JSON* from the **Misc.** menu
+   or toolbar.
+3. A file dialog opens — select the `.json` file.
+
+**What it does:**
+- Reads the JSON file, which may contain a single object or a list of objects.
+- Detects curves (have a `degree` key) vs surfaces (have `degree_u`/`degree_v`
+  keys) automatically.
+- Converts the full geomdl knot vector to the unique-knots + multiplicities
+  format required by OCCT.
+- Creates a `NurbsCurve` or `NurbsSurface` `Part::FeaturePython` object with
+  the same editable properties as the *Import NURBS Curve/Surface* commands
+  above.
+
+**JSON format (geomdl/Sverchok):**
+
+*Curve:*
+```json
+{
+  "degree": 3,
+  "knotvector": [0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0],
+  "control_points": [[x, y, z], ...],
+  "weights": [1.0, ...],
+  "closed": false
+}
+```
+
+*Surface:*
+```json
+{
+  "degree_u": 3, "degree_v": 3,
+  "knotvector_u": [...], "knotvector_v": [...],
+  "size_u": 4, "size_v": 4,
+  "control_points": [[x, y, z], ...],
+  "weights": [1.0, ...]
+}
+```
+
+Both `weights` and `closed`/`closed_u`/`closed_v` are optional (defaults: all
+weights 1.0, non-periodic).
+
+---
+
 ## License  
 CurvesWB is released under the LGPL2.1+ license. See [LICENSE](https://github.com/tomate44/CurvesWB/blob/main/LICENSES/LGPL-2.1.txt).
