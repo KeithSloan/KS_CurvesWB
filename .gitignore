@@ -2,3 +2,4 @@
 *.md
 *.fcstd1
 /docFiles/
+.claude/
