@@ -197,5 +197,54 @@ weights 1.0, non-periodic).
 
 ---
 
+### Import SP STEP Shape
+
+**Command:** `Curves_ImportSPStep`
+
+Converts all NURBS faces and boundary curves from a selected STEP-imported
+shape into editable Curves workbench objects.  Designed for shapes produced
+by [Surface Psycho's](https://github.com/Poulpator/Bezier-quest) STEP exporter
+(labelled **"Open CASCADE STEP translator 7.9 1"** in the model tree), but
+works on any `Part::Feature` whose shape contains `BSplineSurface` faces or
+`BSplineCurve` edges.
+
+**Usage:**
+1. Import a Surface Psycho `.step` file via `File → Import` (FreeCAD's built-in
+   STEP importer).
+2. Select the imported shape object in the model tree.
+3. Activate *Import SP STEP Shape* from the **Misc.** menu or toolbar.
+
+**What it does:**
+- For **every** `BSplineSurface` face in the shape → creates a `NurbsSurfaceFP`
+  object with the same editable properties as *Import NURBS Surface* above.
+- For **every** `BSplineCurve` boundary edge in the shape → creates a
+  `NurbsCurveFP` object with the same editable properties as *Import NURBS
+  Curve* above.
+- Non-NURBS faces (planes, cones, cylinders) and non-NURBS edges (lines,
+  arcs) are silently skipped.
+- The source object is hidden after conversion.
+
+**Typical output for a single SP patch:**
+- 1 × `NurbsSurface` — the patch surface, usable with IsoCurve, zebra
+  analysis, blend surface, etc.
+- 4 × `NurbsCurve` — the four boundary curves, ready for Gordon surface
+  construction.
+
+**Workflow: Surface Psycho → FreeCAD Curves**
+
+```
+Surface Psycho NURBS patch  (Blender)
+    ↓  File → Export STEP  (SP's built-in OCP exporter)
+STEP file  (B_SPLINE_SURFACE_WITH_KNOTS + boundary curves)
+    ↓  File → Import  (FreeCAD built-in)
+"Open CASCADE STEP translator 7.9 1"  (static Part::Feature)
+    ↓  Import SP STEP Shape  (this command)
+NurbsSurfaceFP  +  NurbsCurveFP objects  (fully editable)
+    ↓  Gordon surface / IsoCurve / blend / etc.
+Parametric NURBS model in FreeCAD
+```
+
+---
+
 ## License  
 CurvesWB is released under the LGPL2.1+ license. See [LICENSE](https://github.com/tomate44/CurvesWB/blob/main/LICENSES/LGPL-2.1.txt).
