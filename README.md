@@ -47,43 +47,42 @@ Code contribution is NOT encouraged and should first be discussed in [FreeCAD fo
 The workbench documention is not extensive.  
 Contributing documentation on [FreeCAD wiki](https://wiki.freecad.org/Curves_Workbench) is welcome.
 
-## Importing NURBS Geometry from Rhino (.3dm) Files
+## KS Extensions: Extracting and Importing NURBS Geometry
 
-The workbench includes two commands for converting NURBS geometry imported via the
-[ImportExport\_3DM](https://github.com/KeithSloan/ImportExport_3DM) workbench into
-fully editable Curves workbench objects.
+This fork adds commands for converting externally-imported NURBS geometry into fully
+editable `Part::FeaturePython` objects.  The resulting objects store all NURBS data
+(poles, weights, knots, multiplicities, degree, periodicity) as editable properties,
+making them available to all other Curves workbench tools.
 
-The ImportExport\_3DM workbench uses the **rhino3dm** Python library to read Rhino
-`.3dm` files.  The imported objects can be viewed in FreeCAD but are static — their
-NURBS data cannot be edited directly.  The commands below wrap the imported geometry
-in a parametric `Part::FeaturePython` object whose control-point poles, weights, knots
-and multiplicities are stored as editable properties, making them available to all
-other Curves workbench tools.
-
-Both commands are found in the **Misc.** toolbar and menu.
+All commands are found in the **Misc.** toolbar and menu.
 
 ---
 
-### Import NURBS Curve
+### Extract NURBS
 
-**Command:** `Curves_ImportNurbsCurve`
+**Command:** `Curves_ExtractNURBS`
 
-Converts an imported NURBS curve into an editable Curves workbench BSpline curve object.
+Extracts **all** editable NURBS objects from any selected Part shape — whether
+imported from STEP, Rhino `.3dm` (via
+[ImportExport\_3DM](https://github.com/KeithSloan/ImportExport_3DM)), or any other
+source.
 
 **Usage:**
-1. Import a `.3dm` file containing NURBS curves using the ImportExport\_3DM workbench.
-2. Select one or more of the imported curve objects in the 3D view or model tree.
-3. Activate *Import NURBS Curve* from the **Misc.** menu or toolbar.
+1. Import a shape into FreeCAD (STEP, 3DM, etc.).
+2. Select one or more of the imported objects in the 3D view or model tree.
+3. Activate *Extract NURBS* from the **Misc.** menu or toolbar.
+
+The command is only enabled when the selection contains at least one object with
+`BSplineSurface` faces or `BSplineCurve` edges.
 
 **What it does:**
-- Finds the first Edge in the selected object that contains a `BSplineCurve`.
-- Extracts the full NURBS description: poles (control points), weights, knot vector,
-  knot multiplicities, degree, and periodic flag.
-- Creates a new `Part::FeaturePython` object whose `execute()` method reconstructs the
-  `BSplineCurve` from the stored properties.
-- Hides the original imported object.
+- For every `BSplineSurface` face → creates a `NurbsSurface` `Part::FeaturePython`
+  object with `FaceIndex` set so `execute()` copies the correctly-trimmed source face.
+- For every `BSplineCurve` edge → creates a `NurbsCurve` `Part::FeaturePython` object.
+- Non-NURBS geometry (planes, cones, lines, arcs) is silently skipped.
+- Each source object is hidden after conversion.
 
-**Stored properties (all editable):**
+**NurbsCurve stored properties (all editable):**
 
 | Property | Type | Description |
 |---|---|---|
@@ -95,37 +94,17 @@ Converts an imported NURBS curve into an editable Curves workbench BSpline curve
 | `Degree` | Integer | Polynomial degree of the curve |
 | `Periodic` | Bool | Whether the curve is closed/periodic |
 
-The resulting object shape is an `Edge`, so it can be used directly with any Curves
-workbench tool that accepts an edge (join, extend, split, discretize, blend, etc.).
+The resulting object shape is an `Edge`, usable with any Curves tool that accepts an
+edge (join, extend, split, discretize, blend, etc.).
 
----
-
-### Import NURBS Surface
-
-**Command:** `Curves_ImportNurbsSurface`
-
-Converts an imported NURBS surface into an editable Curves workbench BSpline surface object.
-
-**Usage:**
-1. Import a `.3dm` file containing NURBS surfaces using the ImportExport\_3DM workbench.
-2. Select one or more of the imported surface objects in the 3D view or model tree.
-3. Activate *Import NURBS Surface* from the **Misc.** menu or toolbar.
-
-**What it does:**
-- Finds the first Face in the selected object that contains a `BSplineSurface`.
-- Extracts the full NURBS description: the U×V pole grid, weights, knot vectors and
-  multiplicities for both parametric directions, degrees, and periodicity flags.
-- Creates a new `Part::FeaturePython` object whose `execute()` method reconstructs the
-  `BSplineSurface` from the stored properties.
-- Hides the original imported object.
-
-**Stored properties (all editable):**
+**NurbsSurface stored properties (all editable):**
 
 | Property | Type | Description |
 |---|---|---|
 | `Source` | Link | Reference to the original imported object |
-| `Poles` | VectorList | Control point positions, stored row-major (U × V) |
-| `Weights` | FloatList | Weight for each pole, stored row-major |
+| `FaceIndex` | Integer | Index into `Source.Shape.Faces` |
+| `Poles` | VectorList | Control point grid, stored flat row-major (U × V) |
+| `Weights` | FloatList | Weight for each pole, stored flat row-major |
 | `NbPolesU` | Integer | Number of poles in the U direction |
 | `NbPolesV` | Integer | Number of poles in the V direction |
 | `KnotsU` | FloatList | Knot parameter values in U |
@@ -137,8 +116,10 @@ Converts an imported NURBS surface into an editable Curves workbench BSpline sur
 | `PeriodicU` | Bool | Whether the surface is periodic in U |
 | `PeriodicV` | Bool | Whether the surface is periodic in V |
 
-The resulting object shape is a `Face`, so it can be used directly with any Curves
-workbench tool that accepts a face (trim, iso-curve, zebra analysis, etc.).
+The resulting object shape is a `Face`, usable with any Curves tool that accepts a
+face (trim, iso-curve, zebra analysis, etc.).  `execute()` uses
+`source.Shape.Faces[FaceIndex].copy()` rather than converting the stored NURBS data
+back to an untrimmed shape, so the original trim boundary is preserved correctly.
 
 ---
 
@@ -165,8 +146,7 @@ exchange format.
 - Converts the full geomdl knot vector to the unique-knots + multiplicities
   format required by OCCT.
 - Creates a `NurbsCurve` or `NurbsSurface` `Part::FeaturePython` object with
-  the same editable properties as the *Import NURBS Curve/Surface* commands
-  above.
+  the same editable properties as those produced by *Extract NURBS* above.
 
 **JSON format (geomdl/Sverchok):**
 
