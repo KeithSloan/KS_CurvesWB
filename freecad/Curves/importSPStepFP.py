@@ -45,7 +45,7 @@ def _bspline_from_edge(edge):
     try:
         curve = edge.Curve
     except Exception:
-        return None  # undefined/unsupported curve type (e.g. seam or degenerate edge)
+        return None
     if isinstance(curve, Part.BSplineCurve):
         return curve
     try:
@@ -67,23 +67,26 @@ def _has_nurbs_content(obj):
     return False
 
 
-def _make_surface_feature(source_obj, face, doc):
-    """Create a NurbsSurfaceFP from *face* and add it to *doc*."""
+def _make_surface_feature(source_obj, face, face_index, doc):
+    """Create a NurbsSurfaceFP from *face* (at *face_index*) and add it to *doc*."""
     bs = _bspline_from_face(face)
     if bs is None:
         return None
+
+    poles_2d   = bs.getPoles()
+    weights_2d = bs.getWeights()
+    nu = len(poles_2d)
+    nv = len(poles_2d[0]) if poles_2d else 0
 
     fp = doc.addObject("Part::FeaturePython", "NurbsSurface")
     NurbsSurfaceFP(fp)
     NurbsSurfaceVP(fp.ViewObject)
 
-    fp.Source = source_obj
+    fp.Source    = source_obj
+    fp.FaceIndex = face_index
 
-    poles_2d   = bs.getPoles()
-    weights_2d = bs.getWeights()
-
-    fp.NbPolesU  = len(poles_2d)
-    fp.NbPolesV  = len(poles_2d[0]) if poles_2d else 0
+    fp.NbPolesU  = nu
+    fp.NbPolesV  = nv
     fp.Poles     = [p for row in poles_2d   for p in row]
     fp.Weights   = [w for row in weights_2d for w in row]
     fp.KnotsU    = bs.getUKnots()
@@ -94,6 +97,7 @@ def _make_surface_feature(source_obj, face, doc):
     fp.DegreeV   = bs.VDegree
     fp.PeriodicU = bs.isUPeriodic()
     fp.PeriodicV = bs.isVPeriodic()
+
     return fp
 
 
@@ -142,8 +146,8 @@ class ImportSPStepCommand:
 
             n_surf = n_curve = 0
 
-            for face in obj.Shape.Faces:
-                fp = _make_surface_feature(obj, face, doc)
+            for face_index, face in enumerate(obj.Shape.Faces):
+                fp = _make_surface_feature(obj, face, face_index, doc)
                 if fp is not None:
                     n_surf += 1
                 else:

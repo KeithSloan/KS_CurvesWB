@@ -76,8 +76,8 @@ def _has_nurbs_content(obj):
 # Feature builders
 # ---------------------------------------------------------------------------
 
-def _make_surface_feature(source_obj, face, doc):
-    """Create a NurbsSurfaceFP from *face* and add it to *doc*."""
+def _make_surface_feature(source_obj, face, face_index, doc):
+    """Create a NurbsSurfaceFP from *face* (at *face_index*) and add it to *doc*."""
     bs = _bspline_from_face(face)
     if bs is None:
         return None
@@ -86,7 +86,8 @@ def _make_surface_feature(source_obj, face, doc):
     NurbsSurfaceFP(fp)
     NurbsSurfaceVP(fp.ViewObject)
 
-    fp.Source = source_obj
+    fp.Source    = source_obj
+    fp.FaceIndex = face_index
 
     poles_2d   = bs.getPoles()
     weights_2d = bs.getWeights()
@@ -157,8 +158,8 @@ class Import3DMShapeCommand:
             n_surf  = 0
             n_curve = 0
 
-            for face in obj.Shape.Faces:
-                fp = _make_surface_feature(obj, face, doc)
+            for face_index, face in enumerate(obj.Shape.Faces):
+                fp = _make_surface_feature(obj, face, face_index, doc)
                 if fp is not None:
                     n_surf += 1
 

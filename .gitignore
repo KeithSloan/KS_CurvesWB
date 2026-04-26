@@ -1,5 +1,7 @@
 *.pyc
 *.md
+!Research Papers/**/*.md
 *.fcstd1
 /docFiles/
 .claude/
+.DS_Store

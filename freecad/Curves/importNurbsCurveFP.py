@@ -1,19 +1,13 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
+# Shared FP/VP classes for editable NURBS curve objects.
+# The GUI command lives in extractNurbsFP.py (Curves_ExtractNURBS).
 
-__title__ = 'Import NURBS Curve'
+__title__ = 'NURBS Curve FP'
 __author__ = 'Keith Sloan'
 __license__ = 'LGPL 2.1'
-__doc__ = '''Convert an imported NURBS curve (e.g. from a .3dm file) into a
-Curves workbench editable BSpline curve object.
-
-Select an object whose shape is an Edge containing a BSplineCurve, then
-activate this command.  The source object is hidden and replaced by a
-parametric Curves object whose poles, weights, knots and multiplicities
-can be edited.'''
 
 import os
 import FreeCAD
-import FreeCADGui
 import Part
 from freecad.Curves import ICONPATH
 
@@ -109,60 +103,3 @@ class NurbsCurveVP:
             return None
 
 
-class ImportNurbsCurveCommand:
-    """Convert a selected NURBS curve import into an editable Curves object."""
-
-    def makeFeature(self, source_obj, edge):
-        bs = _bspline_from_edge(edge)
-        if bs is None:
-            FreeCAD.Console.PrintError("ImportNurbsCurve: could not extract BSplineCurve\n")
-            return
-
-        fp = FreeCAD.ActiveDocument.addObject("Part::FeaturePython", "NurbsCurve")
-        NurbsCurveFP(fp)
-        NurbsCurveVP(fp.ViewObject)
-
-        fp.Source         = source_obj
-        fp.Poles          = bs.getPoles()
-        fp.Weights        = bs.getWeights()
-        fp.Knots          = bs.getKnots()
-        fp.Multiplicities = bs.getMultiplicities()
-        fp.Degree         = bs.Degree
-        fp.Periodic       = bs.isPeriodic()
-
-        source_obj.ViewObject.Visibility = False
-        FreeCAD.ActiveDocument.recompute()
-
-    def Activated(self):
-        sel = FreeCADGui.Selection.getSelection()
-        if not sel:
-            FreeCAD.Console.PrintError("ImportNurbsCurve: select a NURBS curve object first\n")
-            return
-        found = False
-        for obj in sel:
-            edge = _find_bspline_edge(obj)
-            if edge is not None:
-                self.makeFeature(obj, edge)
-                found = True
-            else:
-                FreeCAD.Console.PrintWarning("ImportNurbsCurve: {} has no BSplineCurve edge, skipped\n".format(obj.Name))
-        if not found:
-            FreeCAD.Console.PrintError("ImportNurbsCurve: no suitable NURBS curve found in selection\n")
-
-    def IsActive(self):
-        if not FreeCAD.ActiveDocument:
-            return False
-        for obj in FreeCADGui.Selection.getSelection():
-            if _find_bspline_edge(obj) is not None:
-                return True
-        return False
-
-    def GetResources(self):
-        return {
-            'Pixmap':   TOOL_ICON,
-            'MenuText': __title__,
-            'ToolTip':  "{}\n\n{}".format(__title__, __doc__),
-        }
-
-
-FreeCADGui.addCommand('Curves_ImportNurbsCurve', ImportNurbsCurveCommand())
