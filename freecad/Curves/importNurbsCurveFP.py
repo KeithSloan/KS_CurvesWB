@@ -22,7 +22,10 @@ TOOL_ICON = os.path.join(ICONPATH, 'editableSpline.svg')
 
 def _bspline_from_edge(edge):
     """Return the BSplineCurve geometry from *edge*, or None."""
-    curve = edge.Curve
+    try:
+        curve = edge.Curve
+    except Exception:
+        return None  # undefined/unsupported curve type (e.g. seam or degenerate edge)
     if isinstance(curve, Part.BSplineCurve):
         return curve
     # Try to convert lines/arcs to BSpline as a fallback

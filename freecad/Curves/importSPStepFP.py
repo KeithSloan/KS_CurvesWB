@@ -42,7 +42,10 @@ def _bspline_from_face(face):
 
 def _bspline_from_edge(edge):
     """Return the BSplineCurve from *edge*, converting if possible, else None."""
-    curve = edge.Curve
+    try:
+        curve = edge.Curve
+    except Exception:
+        return None  # undefined/unsupported curve type (e.g. seam or degenerate edge)
     if isinstance(curve, Part.BSplineCurve):
         return curve
     try:
