@@ -102,6 +102,27 @@ Designed for surfaces imported via the ImportExport_3DM workbench.
 Reads a geomdl/Sverchok JSON file and creates `NurbsCurveFP` or `NurbsSurfaceFP` objects.
 The JSON uses a full expanded knot vector; the importer converts it to unique-knots + multiplicities.
 
+### `import3DMFP.py` — `Curves_Import3DMShape`
+
+Converts **all** NURBS objects from a selected ImportExport_3DM import session into editable
+Curves objects.  Select one or more objects created by the ImportExport_3DM workbench, then
+activate the command.
+
+**What it does:**
+- For every `BSplineSurface` face in each selected object → creates a `NurbsSurfaceFP`.
+- For every `BSplineCurve` edge in each selected object  → creates a `NurbsCurveFP`.
+- Non-NURBS geometry (planes, lines, arcs) is silently skipped.
+- Each source object is hidden after conversion.
+
+**Key helpers** (same pattern as `importSPStepFP.py`):
+```python
+def _bspline_from_face(face):   # returns BSplineSurface or None (tries toBSpline())
+def _bspline_from_edge(edge):   # returns BSplineCurve or None (tries toBSpline())
+def _has_nurbs_content(obj):    # drives IsActive()
+def _make_surface_feature(source_obj, face, doc):
+def _make_curve_feature(source_obj, edge, doc):
+```
+
 ### `importSPStepFP.py` — `Curves_ImportSPStep`
 
 Converts **all** NURBS faces and boundary curves from a selected STEP-imported shape into editable

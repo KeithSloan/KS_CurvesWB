@@ -71,6 +71,7 @@ class CurvesWorkbench(Gui.Workbench):
         from . import importNurbsSurfaceFP
         from . import importSverchokJSON
         from . import importSPStepFP
+        from . import import3DMFP
         # from . import ProfileSupportFP
         # from . import Sweep2RailsFP
         # from . import HQRuledSurfaceFP
@@ -88,7 +89,7 @@ class CurvesWorkbench(Gui.Workbench):
                     'Curves_DraftAnalysis', "Curve_TruncateExtendCmd", "Curves_WaterlineCurves"]  # ,"Curves_ProfileSupport", "Curves_Sweep2Rails"]
         misclist = ["GeomInfo", "extract", "solid", "pasteSVG", "to_console", "Curves_adjacent_faces",
                     "Curves_bspline_to_console", "Curves_ImportNurbsCurve", "Curves_ImportNurbsSurface",
-                    "Curves_ImportSverchokJSON", "Curves_ImportSPStep"]
+                    "Curves_ImportSverchokJSON", "Curves_ImportSPStep", "Curves_Import3DMShape"]
 
         self.appendToolbar("Curves", curvelist)
         self.appendToolbar("Surfaces", surflist)
